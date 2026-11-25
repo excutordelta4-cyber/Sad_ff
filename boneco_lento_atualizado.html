@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080808"><title>BONECO LENTO</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif}
+header{text-align:center;padding:30px 14px 24px;border-bottom:1px solid #292929}
+h1{margin:0;color:#e50920;font-size:30px;letter-spacing:2px}header p{color:#bbb;margin:9px 0 0}
+main{max-width:540px;margin:26px auto;padding:0 15px}.card{background:#151515;border:1px solid #333;border-radius:16px;padding:21px;margin-bottom:17px}
+h2{color:#e50920;margin:0 0 17px;font-size:21px}label{display:block;margin:12px 0 7px;color:#ccc;font-size:14px}
+input,select{width:100%;padding:14px;background:#090909;color:#fff;border:1px solid #444;border-radius:9px;font-size:16px}
+button{width:100%;border:0;border-radius:10px;padding:15px;background:#e50920;color:#fff;font-size:15px;font-weight:bold;margin-top:13px}
+button.secondary{background:#292929;border:1px solid #555}button.block{background:#72101a}
+.note{color:#aaa;font-size:12px;line-height:1.5}.status{padding:13px;border-radius:9px;background:#202020;margin-top:14px}
+.hidden{display:none!important}.item{background:#0b0b0b;border:1px solid #393939;border-radius:10px;padding:13px;margin:10px 0}
+.item strong{display:block;word-break:break-all;margin-bottom:7px}.item small{display:block;color:#bbb;line-height:1.6}
+.row{display:flex;gap:8px}.row button{width:50%;padding:11px 5px;font-size:12px}
+footer{text-align:center;padding:25px 10px;font-size:13px;font-weight:bold;letter-spacing:1px}
+</style></head>
+<body>
+<header><h1>BONECO LENTO</h1><p>PAINEL DE ACESSO</p></header>
+<main>
+<section class="card" id="login">
+<h2>Entrar</h2><label for="accessKey">Chave de acesso</label>
+<input id="accessKey" placeholder="Digite sua chave" autocomplete="off">
+<button onclick="enter()">ENTRAR</button><div id="error" class="status hidden"></div>
+</section>
+
+<section class="card hidden" id="client">
+<h2>BONECO LENTO</h2>
+<p style="color:#ccc">Acesso autorizado.</p>
+<button id="activate" onclick="activate()">ATIVAR BONECO LENTO</button>
+<div id="activationStatus" class="status hidden"></div>
+<button class="secondary" onclick="logout()">SAIR</button>
+</section>
+
+<section class="card hidden" id="admin">
+<h2>ADMINISTRADOR</h2>
+<label for="newName">Nome da chave (opcional)</label><input id="newName" placeholder="Ex.: CLIENTE01">
+<label for="days">Validade</label><select id="days">
+<option value="1">1 dia</option><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option><option value="365">365 dias</option><option value="0">Sem vencimento</option></select>
+<button onclick="makeKey()">CRIAR CHAVE</button><div id="newResult" class="status hidden"></div>
+<h2 style="margin-top:25px">CHAVES DOS CLIENTES</h2><div id="keys"></div>
+<button class="secondary" onclick="logout()">SAIR DO ADMINISTRADOR</button>
+</section>
+</main>
+<footer>ATIVE RELOQUE NO FREE FIRE</footer>
+<script>
+const ADMIN="1234adm", DB="bl_keys_v2", DID="bl_device_v2";
+let data=JSON.parse(localStorage.getItem(DB)||"[]");
+let device=localStorage.getItem(DID);
+if(!device){device="dev-"+Math.random().toString(36).slice(2)+Date.now();localStorage.setItem(DID,device)}
+function save(){localStorage.setItem(DB,JSON.stringify(data))}
+function enter(){
+ const v=document.getElementById("accessKey").value.trim(),err=document.getElementById("error");
+ err.classList.add("hidden");
+ if(v===ADMIN){show("admin");draw();return}
+ const k=data.find(x=>x.key.toLowerCase()===v.toLowerCase());
+ if(!k){err.textContent="Chave inválida.";err.classList.remove("hidden");return}
+ if(k.blocked){err.textContent="Chave bloqueada.";err.classList.remove("hidden");return}
+ if(k.expiry&&Date.now()>k.expiry){err.textContent="Chave expirada.";err.classList.remove("hidden");return}
+ if(k.device&&k.device!==device){err.textContent="Esta chave já foi ativada em outro aparelho.";err.classList.remove("hidden");return}
+ if(!k.device){k.device=device;k.activated=Date.now();save()}
+ show("client");
+}
+function show(id){["login","client","admin"].forEach(x=>document.getElementById(x).classList.toggle("hidden",x!==id))}
+function logout(){document.getElementById("accessKey").value="";document.getElementById("activationStatus").classList.add("hidden");show("login")}
+function activate(){
+ const s=document.getElementById("activationStatus");s.textContent="BONECO LENTO — painel ativado.";s.classList.remove("hidden");
+ document.getElementById("activate").textContent="BONECO LENTO ATIVADO";
+}
+function makeKey(){
+ let key=document.getElementById("newName").value.trim().replace(/\s+/g,"-").toUpperCase();
+ if(!key)key="BL-"+Math.random().toString(36).slice(2,8).toUpperCase();
+ if(data.some(x=>x.key.toLowerCase()===key.toLowerCase())){alert("Essa chave já existe.");return}
+ let d=Number(document.getElementById("days").value);
+ data.push({key,created:Date.now(),expiry:d?Date.now()+d*86400000:0,blocked:false,device:null,activated:null});
+ save();let r=document.getElementById("newResult");r.textContent="Chave criada: "+key;r.classList.remove("hidden");document.getElementById("newName").value="";draw();
+}
+function copyKey(key){if(navigator.clipboard?.writeText)navigator.clipboard.writeText(key).then(()=>alert("Chave copiada.")).catch(()=>prompt("Copie:",key));else prompt("Copie:",key)}
+function blockKey(i){data[i].blocked=!data[i].blocked;save();draw()}
+function deleteKey(i){if(confirm("Excluir esta chave?")){data.splice(i,1);save();draw()}}
+function draw(){
+ const box=document.getElementById("keys");box.innerHTML="";
+ if(!data.length){box.innerHTML='<p class="note">Nenhuma chave criada.</p>';return}
+ data.forEach((k,i)=>{
+  let el=document.createElement("div");el.className="item";
+  let strong=document.createElement("strong");strong.textContent=k.key;el.appendChild(strong);
+  let small=document.createElement("small");let expired=k.expiry&&Date.now()>k.expiry;
+  small.textContent=(k.blocked?"BLOQUEADA":expired?"EXPIRADA":"ATIVA")+" · Validade: "+(k.expiry?new Date(k.expiry).toLocaleDateString("pt-BR"):"Sem vencimento")+" · Ativada: "+(k.activated?new Date(k.activated).toLocaleString("pt-BR"):"Ainda não");el.appendChild(small);
+  let row=document.createElement("div");row.className="row";
+  [[ "COPIAR",()=>copyKey(k.key),"secondary"],[k.blocked?"DESBLOQUEAR":"BLOQUEAR",()=>blockKey(i),"block"],["EXCLUIR",()=>deleteKey(i),"secondary"]].forEach(([t,f,c])=>{let b=document.createElement("button");b.textContent=t;b.className=c;b.onclick=f;row.appendChild(b)});
+  el.appendChild(row);box.appendChild(el);
+ });
+}
+</script></body></html>
